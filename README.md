@@ -1,3 +1,8 @@
+## About this fork
+
+- Add other service and characteristics to send back data from host device.
+- Quick hack for the advertising problem
+
 ## POSSIBLE BREAKING CHANGES - PLEASE READ
 A large code rebase (configuration class) along with some extra features (start, select, menu, home, back, volume up, volume down and volume mute buttons) has been committed thanks to @dexterdy
 
@@ -142,7 +147,6 @@ Ensure you have Direct X 9 installed
 You might also be interested in:
 - [ESP32-BLE-Mouse](https://github.com/T-vK/ESP32-BLE-Mouse)
 - [ESP32-BLE-Keyboard](https://github.com/T-vK/ESP32-BLE-Keyboard)
-- [Composite Gamepad/Mouse/Keyboard and Xinput capable fork of this library](https://github.com/Mystfit/ESP32-BLE-CompositeHID)
 
 or the NimBLE versions at
 

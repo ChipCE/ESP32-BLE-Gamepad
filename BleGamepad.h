@@ -11,6 +11,69 @@
 #include "NimBLECharacteristic.h"
 #include "BleGamepadConfiguration.h"
 
+
+#define SERVICE_UUID_DEVICE_CONTROL       "A9E90000-194C-4523-A473-5FDF36AA4D20"
+
+#define CHARACTERISTIC_UUID_ALIVE         "A9E90010-194C-4523-A473-5FDF36AA4D20"
+
+#define CHARACTERISTIC_UUID_CONTROL_CMD   "A9E9F001-194C-4523-A473-5FDF36AA4D20"
+#define CHARACTERISTIC_UUID_OTA_UPLOAD    "A9E9F010-194C-4523-A473-5FDF36AA4D20" 
+// A9E9F010-194C-4523-A473-5FDF36AA4D20
+// A9E9F002-194C-4523-A473-5FDF36AA4D20
+
+#define CHARACTERISTIC_UUID_SENSOR_DATA   "A9E90001-194C-4523-A473-5FDF36AA4D20"
+#define CHARACTERISTIC_UUID_DEVICE_CONFIG "A9E90002-194C-4523-A473-5FDF36AA4D20"
+// #define CHARACTERISTIC_UUID_DEVICE_STATUS "A9E90004-194C-4523-A473-5FDF36AA4D20"
+
+// static BLEUUID serviceUUID("A9E90000-194C-4523-A473-5FDF36AA4D20");
+// static BLEUUID PeripheralSensorDataUUID("A9E90001-194C-4523-A473-5FDF36AA4D20");
+// static BLEUUID PeripheralConfigDataUUID("A9E90002-194C-4523-A473-5FDF36AA4D20");
+// static BLEUUID PeripheralAliveUUID("A9E90010-194C-4523-A473-5FDF36AA4D20");
+// static BLEUUID CentralEventUUID("A9E9F001-194C-4523-A473-5FDF36AA4D20");
+// static BLEUUID OtaUploadUUID("A9E9F002-194C-4523-A473-5FDF36AA4D20");
+
+
+// 全て８チャネルのADCを使用する時を想定する
+#define SENSOR_DATA_MAX_PACKAGE_SIZE 53
+
+//圧と流量センサーのデータ構造が同じので、BLEでセンサータイプを分ける必要がありません
+//#define PRESSURE_SENSOR_NUM 4
+//#define FLOW_SENSOR_NUM 2
+//今回のdemoは2チャネルしか使わないので２をセットします
+#define ADC_CHANNEL_COUNT 4
+
+class ControlCallback : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pCharacteristic) override;
+    void onRead(NimBLECharacteristic* pCharacteristic) override;
+    void (*funcPointer)(std::string);
+};
+
+class AliveCallback : public NimBLECharacteristicCallbacks {
+    // void onNotify(NimBLECharacteristic* pCharacteristic) override;
+};
+
+class OtaCallback : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pCharacteristic) override;
+    void onRead(NimBLECharacteristic* pCharacteristic) override;
+};
+
+class SensorCallback : public NimBLECharacteristicCallbacks {
+    // void onRead(NimBLECharacteristic* pCharacteristic) override;
+    // void onNotify(NimBLECharacteristic* pCharacteristic) override;
+};
+
+class ConfigCallback : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pCharacteristic) override;
+    void onRead(NimBLECharacteristic* pCharacteristic) override;
+};
+
+class StatusCallback : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pCharacteristic) override;
+    void onRead(NimBLECharacteristic* pCharacteristic) override;
+    void onNotify(NimBLECharacteristic* pCharacteristic) override;
+};
+
+
 class BleGamepad
 {
 private:
@@ -45,6 +108,8 @@ private:
     static void taskServer(void *pvParameter);
     uint8_t specialButtonBitPosition(uint8_t specialButton);
 
+    //TEST
+    uint8_t heartCount=0;
 public:
     BleGamepad(std::string deviceName = "ESP32 BLE Gamepad", std::string deviceManufacturer = "Espressif", uint8_t batteryLevel = 100);
     void begin(BleGamepadConfiguration *config = new BleGamepadConfiguration());
@@ -105,6 +170,13 @@ public:
     uint8_t batteryLevel;
     std::string deviceManufacturer;
     std::string deviceName;
+
+    //TEST
+    void setControlEventCallbackFunction(void (*func)(std::string));
+    void test();
+
+    // Hot fix for ble transmission,
+    void bleBackgroundTask();
 
 protected:
     virtual void onStarted(NimBLEServer *pServer){};

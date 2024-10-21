@@ -29,6 +29,91 @@ static const char *LOG_TAG = "BLEGamepad";
 #define CHARACTERISTIC_UUID_FIRMWARE_REVISION  "2A26"      // Characteristic - Firmware Revision String - 0x2A26
 #define CHARACTERISTIC_UUID_HARDWARE_REVISION  "2A27"      // Characteristic - Hardware Revision String - 0x2A27
 
+void (*controlEventCallbackFunc)(std::string);
+
+// TEST
+NimBLECharacteristic* aliveCharacteristic = nullptr;
+NimBLECharacteristic* controlCharacteristic = nullptr;
+NimBLECharacteristic* otaCharacteristic = nullptr;
+NimBLECharacteristic* sensorCharacteristic = nullptr;
+NimBLECharacteristic* configCharacteristic = nullptr;
+NimBLECharacteristic* statusCharacteristic = nullptr;
+
+NimBLEAdvertising *pAdvertising = nullptr;
+
+
+void ControlCallback::onRead(NimBLECharacteristic* pCharacteristic) {
+    std::string valueToSend = "pong";
+    pCharacteristic->setValue(valueToSend);
+    Serial.print("Characteristic read, value sent: ");
+    Serial.println(valueToSend.c_str());
+}
+
+void ControlCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+    std::string value = pCharacteristic->getValue();
+    Serial.print("Characteristic written: ");
+    Serial.println(value.c_str());
+
+    if (controlEventCallbackFunc != nullptr) {
+        controlEventCallbackFunc(value);
+    }
+}
+
+// void AliveCallback::onNotify(NimBLECharacteristic* pCharacteristic) {
+//     Serial.println("AliveCallback onNotify");
+//     uint8_t packetArray[3];
+//     packetArray[0] = ++heartCount;  // シーケンスカウンタ 1byte
+//     packetArray[1] = 0xF0;        // デバイス番号 1byte
+//     packetArray[2] = 0x04;        // ステータス値 1byte
+//     pCharacteristic->setValue(packetArray, sizeof(packetArray));
+//     pCharacteristic->notify(); 
+// }
+
+void OtaCallback::onRead(NimBLECharacteristic* pCharacteristic) {
+    std::string valueToSend = "pong";
+    pCharacteristic->setValue(valueToSend);  // Set the value that will be read by the client
+}
+
+void OtaCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+    std::string value = pCharacteristic->getValue();
+    Serial.print("Characteristic written: ");
+    Serial.println(value.c_str());
+}
+
+// void SensorCallback::onRead(NimBLECharacteristic* pCharacteristic) {
+//     std::string valueToSend = "pong";
+//     pCharacteristic->setValue(valueToSend);  // Set the value that will be read by the client
+// }
+
+// void SensorCallback::onNotify(NimBLECharacteristic* pCharacteristic) {
+//     Serial.println("onNotify");
+// }
+
+void ConfigCallback::onRead(NimBLECharacteristic* pCharacteristic) {
+    std::string valueToSend = "pong";
+    pCharacteristic->setValue(valueToSend);  // Set the value that will be read by the client
+}
+
+void ConfigCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+    std::string value = pCharacteristic->getValue();
+    Serial.print("Characteristic written: ");
+    Serial.println(value.c_str());
+}
+
+void StatusCallback::onRead(NimBLECharacteristic* pCharacteristic) {
+    std::string valueToSend = "pong";
+    pCharacteristic->setValue(valueToSend);  // Set the value that will be read by the client
+}
+
+void StatusCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+    std::string value = pCharacteristic->getValue();
+    Serial.print("Characteristic written: ");
+    Serial.println(value.c_str());
+}
+
+void StatusCallback::onNotify(NimBLECharacteristic* pCharacteristic) {
+    Serial.println("onNotify");
+}
 
 uint8_t tempHidReportDescriptor[150];
 int hidReportDescriptorSize = 0;
@@ -1368,6 +1453,9 @@ void BleGamepad::taskServer(void *pvParameter)
     
     NimBLEDevice::init(BleGamepadInstance->deviceName);
     NimBLEServer *pServer = NimBLEDevice::createServer();
+    //TEST
+    NimBLEDevice::setMTU(128);
+
     pServer->setCallbacks(BleGamepadInstance->connectionStatus);
 
     BleGamepadInstance->hid = new NimBLEHIDDevice(pServer);
@@ -1378,6 +1466,50 @@ void BleGamepad::taskServer(void *pvParameter)
     BleGamepadInstance->hid->manufacturer()->setValue(BleGamepadInstance->deviceManufacturer);
 
     NimBLEService *pService = pServer->getServiceByUUID(SERVICE_UUID_DEVICE_INFORMATION);
+
+    //TEST
+    NimBLEService *cService = pServer->createService(SERVICE_UUID_DEVICE_CONTROL);
+    // TEST Characteristic
+    aliveCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_ALIVE,
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    aliveCharacteristic->setCallbacks(new AliveCallback());
+
+    //NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
+    controlCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_CONTROL_CMD,
+        NIMBLE_PROPERTY::WRITE
+    );
+    controlCharacteristic->setCallbacks(new ControlCallback());
+
+    otaCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_OTA_UPLOAD,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
+    );
+    otaCharacteristic->setCallbacks(new OtaCallback());
+
+    //NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
+    sensorCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_SENSOR_DATA,
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    sensorCharacteristic->setCallbacks(new SensorCallback());
+
+    configCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_DEVICE_CONFIG,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
+    );
+    configCharacteristic->setCallbacks(new ConfigCallback());
+
+    // statusCharacteristic = cService->createCharacteristic(
+    //     CHARACTERISTIC_UUID_DEVICE_STATUS,
+    //     NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
+    // );
+    // statusCharacteristic->setCallbacks(new StatusCallback());
+
+
+    // -----------------
 	
 	BLECharacteristic* pCharacteristic_Model_Number = pService->createCharacteristic(
       CHARACTERISTIC_UUID_MODEL_NUMBER,
@@ -1423,17 +1555,92 @@ void BleGamepad::taskServer(void *pvParameter)
     //for (int i = 0; i < hidReportDescriptorSize; i++)
     //    Serial.printf("%02x", customHidReportDescriptor[i]);
 
+    // TEST
+    cService->start();
+
     BleGamepadInstance->hid->reportMap((uint8_t *)customHidReportDescriptor, hidReportDescriptorSize);
     BleGamepadInstance->hid->startServices();
 
     BleGamepadInstance->onStarted(pServer);
 
-    NimBLEAdvertising *pAdvertising = pServer->getAdvertising();
+    pAdvertising = pServer->getAdvertising();
     pAdvertising->setAppearance(HID_GAMEPAD);
     pAdvertising->addServiceUUID(BleGamepadInstance->hid->hidService()->getUUID());
+    //TEST
+    pAdvertising->addServiceUUID(cService->getUUID());
+
     pAdvertising->start();
     BleGamepadInstance->hid->setBatteryLevel(BleGamepadInstance->batteryLevel);
 
     ESP_LOGD(LOG_TAG, "Advertising started!");
     vTaskDelay(portMAX_DELAY); // delay(portMAX_DELAY);
+}
+
+
+void BleGamepad::setControlEventCallbackFunction(void (*func)(std::string)){
+    controlEventCallbackFunc = func;
+}
+
+void BleGamepad::test(void){
+    uint8_t currentHeatBeat = ++heartCount;
+
+    Serial.println("AliveCallback onNotify");
+    uint8_t packetArray[3];
+    packetArray[0] = currentHeatBeat;  // シーケンスカウンタ 1byte
+    packetArray[1] = 0xF0;        // デバイス番号 1byte
+    packetArray[2] = 0x04;        // ステータス値 1byte
+    aliveCharacteristic->setValue(packetArray, sizeof(packetArray));
+    aliveCharacteristic->notify(); 
+    // aliveCharacteristic->notify();
+
+
+
+
+    const uint8_t SENSOR_RAW_BYTE_SIZE = 2;
+    const uint8_t SENSOR_VAL_BYTE_SIZE = 4;
+
+    uint8_t sensorPacketArray[SENSOR_DATA_MAX_PACKAGE_SIZE];
+
+    // [0]: sequence counter
+    sensorPacketArray[0] = currentHeatBeat;
+
+    // 16bit int -> 2byteに分割
+    int packageOffset = 1;
+    for(int sensorIdx = 0; sensorIdx < ADC_CHANNEL_COUNT; sensorIdx++) {
+        int packageIdx = packageOffset + sensorIdx * SENSOR_RAW_BYTE_SIZE;
+        int16_t adcRaw = (int16_t)random(-32768, 32768);
+        sensorPacketArray[packageIdx] = adcRaw  & 0xFF; // low byte
+        sensorPacketArray[packageIdx + 1] =  (adcRaw >> 8) & 0xFF; // high byte
+    }
+
+    // 32bit float -> 2byteに分割
+    packageOffset = packageOffset + ADC_CHANNEL_COUNT * SENSOR_RAW_BYTE_SIZE;
+    for(int sensorIdx = 0; sensorIdx < ADC_CHANNEL_COUNT; sensorIdx++) {
+        float adcVal = (random(-10000, 10001)) / 100.0;
+        int packageIdx = packageOffset + sensorIdx * SENSOR_VAL_BYTE_SIZE;
+        unsigned int numAsInt = *((unsigned int*)&adcVal);
+        sensorPacketArray[packageIdx] = (numAsInt) & 0xFF;
+        sensorPacketArray[packageIdx + 1] = (numAsInt >> 8) & 0xFF;
+        sensorPacketArray[packageIdx + 2] = (numAsInt >> 16) & 0xFF;
+        sensorPacketArray[packageIdx + 3] = (numAsInt >> 24) & 0xFF;
+    }
+
+    packageOffset = packageOffset + ADC_CHANNEL_COUNT * SENSOR_VAL_BYTE_SIZE;
+
+    uint32_t currentMillis = millis();
+    sensorPacketArray[packageOffset+0] = currentMillis & 0xFF;
+    sensorPacketArray[packageOffset+1] = (currentMillis >> 8) & 0xFF;
+    sensorPacketArray[packageOffset+2] = (currentMillis >> 16) & 0xFF;
+    sensorPacketArray[packageOffset+3] = (currentMillis >> 24) & 0xFF;
+
+    int realPackageSize = 5 + ADC_CHANNEL_COUNT * SENSOR_RAW_BYTE_SIZE + ADC_CHANNEL_COUNT * SENSOR_VAL_BYTE_SIZE;
+
+    sensorCharacteristic->setValue(sensorPacketArray, realPackageSize);
+    sensorCharacteristic->notify(); 
+}
+
+void BleGamepad::bleBackgroundTask(){
+    if (this->connectionStatus->connected)
+        if (!pAdvertising->isAdvertising())
+            pAdvertising->start();
 }
