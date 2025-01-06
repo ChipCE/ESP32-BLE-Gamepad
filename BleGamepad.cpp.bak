@@ -29,6 +29,63 @@ static const char *LOG_TAG = "BLEGamepad";
 #define CHARACTERISTIC_UUID_FIRMWARE_REVISION  "2A26"      // Characteristic - Firmware Revision String - 0x2A26
 #define CHARACTERISTIC_UUID_HARDWARE_REVISION  "2A27"      // Characteristic - Hardware Revision String - 0x2A27
 
+// callback pointers
+void (*controlEventWriteCallbackFunc)(std::string);
+
+// TEST
+NimBLECharacteristic* aliveCharacteristic = nullptr;
+NimBLECharacteristic* controlCharacteristic = nullptr;
+NimBLECharacteristic* otaCharacteristic = nullptr;
+NimBLECharacteristic* sensorCharacteristic = nullptr;
+NimBLECharacteristic* configCharacteristic = nullptr;
+NimBLECharacteristic* statusCharacteristic = nullptr;
+
+NimBLEAdvertising *pAdvertising = nullptr;
+
+// void BleGamepad::AliveCallback::onNotify(NimBLECharacteristic* pCharacteristic) {
+//     Serial.println("AliveCallback onNotify");
+//     uint8_t packetArray[3];
+//     packetArray[0] = 0;  // シーケンスカウンタ 1byte
+//     packetArray[1] = 0xF0;        // デバイス番号 1byte
+//     packetArray[2] = 0x04;        // ステータス値 1byte
+//     pCharacteristic->setValue(packetArray, sizeof(packetArray));
+//     pCharacteristic->notify(); 
+// }
+
+// void BleGamepad::ControlCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+//     std::string value = pCharacteristic->getValue();
+//     Serial.print("Characteristic written: ");
+//     Serial.println(value.c_str());
+
+//     if (controlEventWriteCallbackFunc != nullptr) {
+//         controlEventWriteCallbackFunc(value);
+//     }
+// }
+
+// void BleGamepad::OtaCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+//     std::string value = pCharacteristic->getValue();
+//     Serial.print("Characteristic written: ");
+//     Serial.println(value.c_str());
+// }
+
+// void BleGamepad::SensorCallback::onNotify(NimBLECharacteristic* pCharacteristic) {
+//     Serial.println("onNotify");
+// }
+
+// void BleGamepad::ConfigCallback::onRead(NimBLECharacteristic* pCharacteristic) {
+//     std::string valueToSend = "pong";
+//     pCharacteristic->setValue(valueToSend);  // Set the value that will be read by the client
+// }
+
+// void BleGamepad::ConfigCallback::onWrite(NimBLECharacteristic* pCharacteristic) {
+//     std::string value = pCharacteristic->getValue();
+//     Serial.print("Characteristic written: ");
+//     Serial.println(value.c_str());
+// }
+
+// void BleGamepad::StatusCallback::onNotify(NimBLECharacteristic* pCharacteristic) {
+//     Serial.println("onNotify");
+// }
 
 uint8_t tempHidReportDescriptor[150];
 int hidReportDescriptorSize = 0;
@@ -47,8 +104,6 @@ std::string serialNumber;
 std::string firmwareRevision;
 std::string hardwareRevision;
 
-bool enableOutputReport = false;
-uint16_t outputReportLength = 64;
 BleGamepad::BleGamepad(std::string deviceName, std::string deviceManufacturer, uint8_t batteryLevel) : _buttons(),
                                                                                                        _specialButtons(0),
                                                                                                        _x(0),
@@ -96,22 +151,19 @@ void BleGamepad::begin(BleGamepadConfiguration *config)
 	pid = configuration.getPid();
 	guidVersion = configuration.getGuidVersion();
 
-    enableOutputReport = configuration.getEnableOutputReport();
-    outputReportLength = configuration.getOutputReportLength();
-    
-  #ifndef PNPVersionField
-	  uint8_t high = highByte(vid);
-	  uint8_t low = lowByte(vid)
-	  vid = low << 8 | high;
+	uint8_t high = highByte(vid);
+	uint8_t low = lowByte(vid);
 
-	  high = highByte(pid);
-	  low = lowByte(pid)
-	  pid = low << 8 | high;
+	vid = low << 8 | high;
+
+	high = highByte(pid);
+	low = lowByte(pid);
+
+	pid = low << 8 | high;
 	
-	  high = highByte(guidVersion);
-	  low = lowByte(guidVersion);
-	  guidVersion = low << 8 | high;
-#endif
+	high = highByte(guidVersion);
+	low = lowByte(guidVersion);
+	guidVersion = low << 8 | high;
 
     uint8_t buttonPaddingBits = 8 - (configuration.getButtonCount() % 8);
     if (buttonPaddingBits == 8)
@@ -571,49 +623,6 @@ void BleGamepad::begin(BleGamepadConfiguration *config)
 
         // END_COLLECTION (Physical)
         tempHidReportDescriptor[hidReportDescriptorSize++] = 0xc0;
-    }
-
-    if (configuration.getEnableOutputReport()){
-        // Usage Page (Vendor Defined 0xFF00)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x06;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x00;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0xFF;
-
-        // Usage (Vendor Usage 0x01)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x09;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x01;
-
-        // Usage (0x01)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x09;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x01;
-
-        // Logical Minimum (0)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x15;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x00;
-
-        // Logical Maximum (255)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x26;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0xFF;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x00;
-
-        // Report Size (8 bits)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x75;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x08;
-
-        if(configuration.getOutputReportLength()<=0xFF){
-            // Report Count (0~255 bytes)
-            tempHidReportDescriptor[hidReportDescriptorSize++] = 0x95;
-            tempHidReportDescriptor[hidReportDescriptorSize++] = configuration.getOutputReportLength();
-        }else{
-            // Report Count (0~65535 bytes)
-            tempHidReportDescriptor[hidReportDescriptorSize++] = 0x96;
-            tempHidReportDescriptor[hidReportDescriptorSize++] = lowByte(configuration.getOutputReportLength());
-            tempHidReportDescriptor[hidReportDescriptorSize++] = highByte(configuration.getOutputReportLength());
-        }
-        
-        // Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x91;
-        tempHidReportDescriptor[hidReportDescriptorSize++] = 0x02;
     }
 
     // END_COLLECTION (Application)
@@ -1391,9 +1400,13 @@ void BleGamepad::setBatteryLevel(uint8_t level)
     this->batteryLevel = level;
     if (hid != 0)
     {
-        
-        this->hid->setBatteryLevel(this->batteryLevel,this->isConnected()?true:false);
+        this->hid->setBatteryLevel(this->batteryLevel);
 
+        if (this->isConnected())
+        {
+            this->hid->batteryLevel()->notify();
+        }
+		
         if (configuration.getAutoReport())
         {
             sendReport();
@@ -1401,22 +1414,6 @@ void BleGamepad::setBatteryLevel(uint8_t level)
     }
 }
 
-bool BleGamepad::isOutputReceived(){
-    if(enableOutputReport && outputReceiver){
-        if(this->outputReceiver->outputFlag){
-            this->outputReceiver->outputFlag=false; // Clear Flag
-            return true;
-        }
-    }
-    return false;
-}
-uint8_t* BleGamepad::getOutputBuffer(){
-    if(enableOutputReport && outputReceiver){
-        memcpy(outputBackupBuffer, outputReceiver->outputBuffer, outputReportLength); // Creating a backup to avoid buffer being overwritten while processing data
-        return outputBackupBuffer;
-    }
-    return nullptr;
-}
 void BleGamepad::taskServer(void *pvParameter)
 {
     BleGamepad *BleGamepadInstance = (BleGamepad *)pvParameter; // static_cast<BleGamepad *>(pvParameter);
@@ -1428,23 +1425,60 @@ void BleGamepad::taskServer(void *pvParameter)
     
     NimBLEDevice::init(BleGamepadInstance->deviceName);
     NimBLEServer *pServer = NimBLEDevice::createServer();
+    //TEST
+    NimBLEDevice::setMTU(128);
+
     pServer->setCallbacks(BleGamepadInstance->connectionStatus);
 
     BleGamepadInstance->hid = new NimBLEHIDDevice(pServer);
 
-    BleGamepadInstance->inputGamepad = BleGamepadInstance->hid->getInputReport(BleGamepadInstance->configuration.getHidReportId()); // <-- input REPORTID from report map
+    BleGamepadInstance->inputGamepad = BleGamepadInstance->hid->inputReport(BleGamepadInstance->configuration.getHidReportId()); // <-- input REPORTID from report map
     BleGamepadInstance->connectionStatus->inputGamepad = BleGamepadInstance->inputGamepad;
 
-    if (enableOutputReport){
-        BleGamepadInstance->outputGamepad = BleGamepadInstance->hid->getOutputReport(BleGamepadInstance->configuration.getHidReportId());
-        BleGamepadInstance->outputReceiver = new BleOutputReceiver(outputReportLength);
-        BleGamepadInstance->outputBackupBuffer = new uint8_t[outputReportLength];
-        BleGamepadInstance->outputGamepad->setCallbacks(BleGamepadInstance->outputReceiver);
-    }
-
-    BleGamepadInstance->hid->setManufacturer(BleGamepadInstance->deviceManufacturer);
+    BleGamepadInstance->hid->manufacturer()->setValue(BleGamepadInstance->deviceManufacturer);
 
     NimBLEService *pService = pServer->getServiceByUUID(SERVICE_UUID_DEVICE_INFORMATION);
+
+    // CKD controller device service
+    NimBLEService *cService = pServer->createService(SERVICE_UUID_CKD_CONTROLLER_DEVICE);
+    
+    // CKD controller device characteristics
+    aliveCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_ALIVE,
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    // aliveCharacteristic->setCallbacks(new BleGamepad::AliveCallback());
+
+    controlCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_CONTROL_CMD,
+        NIMBLE_PROPERTY::WRITE
+    );
+    // controlCharacteristic->setCallbacks(new BleGamepad::ControlCallback());
+
+    otaCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_OTA_UPLOAD,
+        NIMBLE_PROPERTY::WRITE
+    );
+    // otaCharacteristic->setCallbacks(new BleGamepad::OtaCallback());
+
+    sensorCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_SENSOR_DATA,
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    // sensorCharacteristic->setCallbacks(new BleGamepad::SensorCallback());
+
+    configCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_DEVICE_CONFIG,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
+    );
+    // configCharacteristic->setCallbacks(new BleGamepad::ConfigCallback());
+
+    statusCharacteristic = cService->createCharacteristic(
+        CHARACTERISTIC_UUID_DEVICE_STATUS,
+        NIMBLE_PROPERTY::NOTIFY
+    );
+    // statusCharacteristic->setCallbacks(new BleGamepad::StatusCallback());
+    // -----------------
 	
 	BLECharacteristic* pCharacteristic_Model_Number = pService->createCharacteristic(
       CHARACTERISTIC_UUID_MODEL_NUMBER,
@@ -1476,8 +1510,8 @@ void BleGamepad::taskServer(void *pvParameter)
     );
     pCharacteristic_Hardware_Revision->setValue(hardwareRevision);
 
-    BleGamepadInstance->hid->setPnp(0x01, vid, pid, guidVersion);
-    BleGamepadInstance->hid->setHidInfo(0x00, 0x01);
+    BleGamepadInstance->hid->pnp(0x01, vid, pid, guidVersion);
+    BleGamepadInstance->hid->hidInfo(0x00, 0x01);
 
 	// NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_BOND);
 	NimBLEDevice::setSecurityAuth(true, false, false); // enable bonding, no MITM, no SC
@@ -1490,18 +1524,39 @@ void BleGamepad::taskServer(void *pvParameter)
     //for (int i = 0; i < hidReportDescriptorSize; i++)
     //    Serial.printf("%02x", customHidReportDescriptor[i]);
 
-    BleGamepadInstance->hid->setReportMap((uint8_t *)customHidReportDescriptor, hidReportDescriptorSize);
+    // TEST
+    cService->start();
+
+    BleGamepadInstance->hid->reportMap((uint8_t *)customHidReportDescriptor, hidReportDescriptorSize);
     BleGamepadInstance->hid->startServices();
 
     BleGamepadInstance->onStarted(pServer);
 
-    NimBLEAdvertising *pAdvertising = pServer->getAdvertising();
+    pAdvertising = pServer->getAdvertising();
     pAdvertising->setAppearance(HID_GAMEPAD);
-    pAdvertising->setName(BleGamepadInstance->deviceName);
-    pAdvertising->addServiceUUID(BleGamepadInstance->hid->getHidService()->getUUID());
+    pAdvertising->addServiceUUID(BleGamepadInstance->hid->hidService()->getUUID());
+    //TEST
+    pAdvertising->addServiceUUID(cService->getUUID());
+
     pAdvertising->start();
     BleGamepadInstance->hid->setBatteryLevel(BleGamepadInstance->batteryLevel);
 
     ESP_LOGD(LOG_TAG, "Advertising started!");
     vTaskDelay(portMAX_DELAY); // delay(portMAX_DELAY);
+}
+
+
+void BleGamepad::setControlEventCallbackFunction(void (*func)(std::string)){
+    controlEventWriteCallbackFunc = func;
+}
+
+void BleGamepad::test(void){
+    Serial.println("AliveCallback onNotify");
+    
+}
+
+void BleGamepad::bleBackgroundTask(){
+    if (this->connectionStatus->connected)
+        if (!pAdvertising->isAdvertising())
+            pAdvertising->start();
 }

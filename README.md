@@ -1,8 +1,3 @@
-## About this fork
-
-- Add other service and characteristics to send back data from host device.
-- Quick hack for the advertising problem
-
 ## POSSIBLE BREAKING CHANGES - PLEASE READ
 A large code rebase (configuration class) along with some extra features (start, select, menu, home, back, volume up, volume down and volume mute buttons) has been committed thanks to @dexterdy
 
@@ -10,7 +5,7 @@ Since version 5 of this library, the axes and simulation controls have configura
 The decision was made to set defaults to 0 for minimum and 32767 for maximum (previously -32767 to 32767)
 This was due to the fact that non-Windows operating systems and some online web-based game controller testers didn't play well with negative numbers. Existing sketches should take note, and see the DrivingControllerTest example for how to set back to -32767 if wanted
 
-This version of the library has been tested against NimBLE-Arduino version 1.4.1; the latest released version --> https://github.com/h2zero/NimBLE-Arduino/releases/tag/1.4.1
+This version endeavors to be compatible with the latest released version of NimBLE-Arduino through the Arduino Library Manager; currently version 2.1.3 at the time of this writing; --> https://github.com/h2zero/NimBLE-Arduino/releases/tag/2.1.3
 
 Please see updated examples
 
@@ -41,11 +36,13 @@ It would be great however if any improvements are fed back into this version.
  - [x] Configurable BLE characteristics (name, manufacturer, model number, software revision, serial number, firmware revision, hardware revision)	
  - [x] Report optional battery level to host
  - [x] Uses efficient NimBLE bluetooth library
+ - [x] Output report function
  - [x] Compatible with Windows
  - [x] Compatible with Android (Android OS maps default buttons / axes / hats slightly differently than Windows)
  - [x] Compatible with Linux (limited testing)
  - [x] Compatible with MacOS X (limited testing)
  - [ ] Compatible with iOS (No - not even for accessibility switch - This is not a “Made for iPhone” (MFI) compatible device)
+                           (Use the Xinput fork suggested below which has been tested to work) 
 
 ## Installation
 - (Make sure you can use the ESP32 with the Arduino IDE. [Instructions can be found here.](https://github.com/espressif/arduino-esp32#installation-instructions))
@@ -147,6 +144,7 @@ Ensure you have Direct X 9 installed
 You might also be interested in:
 - [ESP32-BLE-Mouse](https://github.com/T-vK/ESP32-BLE-Mouse)
 - [ESP32-BLE-Keyboard](https://github.com/T-vK/ESP32-BLE-Keyboard)
+- [Composite Gamepad/Mouse/Keyboard and Xinput capable fork of this library](https://github.com/Mystfit/ESP32-BLE-CompositeHID)
 
 or the NimBLE versions at
 

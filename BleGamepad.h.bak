@@ -10,7 +10,16 @@
 #include "NimBLEHIDDevice.h"
 #include "NimBLECharacteristic.h"
 #include "BleGamepadConfiguration.h"
-#include "BleOutputReceiver.h"
+
+// カスタムサービスUUID
+#define SERVICE_UUID_CKD_CONTROLLER_DEVICE       "A9E90000-194C-4523-A473-5FDF36AA4D20"
+// カスタムサービスのCHARACTERISTIC_UUID
+#define CHARACTERISTIC_UUID_ALIVE         "A9E91001-194C-4523-A473-5FDF36AA4D20" // alive 信号、一定期間で更新 (N)
+#define CHARACTERISTIC_UUID_CONTROL_CMD   "A9E91002-194C-4523-A473-5FDF36AA4D20" // コントロースイベント用 (W)
+#define CHARACTERISTIC_UUID_OTA_UPLOAD    "A9E91003-194C-4523-A473-5FDF36AA4D20" // アップロードデータ用 (W)
+#define CHARACTERISTIC_UUID_SENSOR_DATA   "A9E91004-194C-4523-A473-5FDF36AA4D20" // 生センサーデータ用 (N)
+#define CHARACTERISTIC_UUID_DEVICE_CONFIG "A9E91005-194C-4523-A473-5FDF36AA4D20" // 現在設定参照用 (RW) コントロースイベントと一部被る?
+#define CHARACTERISTIC_UUID_DEVICE_STATUS "A9E91006-194C-4523-A473-5FDF36AA4D20" // システム全体状態参照用 (N)
 
 class BleGamepad
 {
@@ -39,17 +48,13 @@ private:
 
     BleConnectionStatus *connectionStatus;
 
-    BleOutputReceiver *outputReceiver;
-
     NimBLEHIDDevice *hid;
     NimBLECharacteristic *inputGamepad;
-    NimBLECharacteristic *outputGamepad;
-    
-    uint8_t *outputBackupBuffer;
 
     void rawAction(uint8_t msg[], char msgSize);
     static void taskServer(void *pvParameter);
     uint8_t specialButtonBitPosition(uint8_t specialButton);
+
 
 public:
     BleGamepad(std::string deviceName = "ESP32 BLE Gamepad", std::string deviceManufacturer = "Espressif", uint8_t batteryLevel = 100);
@@ -111,8 +116,39 @@ public:
     uint8_t batteryLevel;
     std::string deviceManufacturer;
     std::string deviceName;
-    bool isOutputReceived();
-    uint8_t* getOutputBuffer();
+
+    //TEST
+    void setControlEventCallbackFunction(void (*func)(std::string));
+    void test();
+
+    // Hot fix for ble transmission,
+    void bleBackgroundTask();
+
+    //  CKD controller device characteristic callback
+    // class AliveCallback : public NimBLECharacteristicCallbacks {
+    //     void onNotify(NimBLECharacteristic* pCharacteristic);
+    // };
+
+    // class ControlCallback : public NimBLECharacteristicCallbacks {
+    //     void onWrite(NimBLECharacteristic* pCharacteristic);
+    // };
+
+    // class OtaCallback : public NimBLECharacteristicCallbacks {
+    //     void onWrite(NimBLECharacteristic* pCharacteristic);
+    // };
+
+    // class SensorCallback : public NimBLECharacteristicCallbacks {
+    //     void onNotify(NimBLECharacteristic* pCharacteristic);
+    // };
+
+    // class ConfigCallback : public NimBLECharacteristicCallbacks {
+    //     void onWrite(NimBLECharacteristic* pCharacteristic);
+    //     void onRead(NimBLECharacteristic* pCharacteristic);
+    // };
+
+    // class StatusCallback : public NimBLECharacteristicCallbacks {
+    //     void onNotify(NimBLECharacteristic* pCharacteristic);
+    // };
 
 protected:
     virtual void onStarted(NimBLEServer *pServer){};
